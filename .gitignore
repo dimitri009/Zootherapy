@@ -57,3 +57,16 @@ data/
 
 # Ignore temporary files
 temp/
+
+# Ignore generated and sensitive files
+.RData
+.Rhistory
+*.xlsx
+.Rproj.user/
+
+# Exclude temporary files
+temp/
+
+# Exclude IDE/editor configuration
+.Rproj.user/
+
