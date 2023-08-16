@@ -47,3 +47,13 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# Ignore compiled R files
+*.Rproj.user/
+*.Rhistory
+
+# Ignore data files
+data/
+
+# Ignore temporary files
+temp/
