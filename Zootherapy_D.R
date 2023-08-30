@@ -5,6 +5,7 @@ library(ggplot2)
 library(gridExtra)
 library(rnaturalearth)
 library(rnaturalearthdata)
+library(pander)
 
 
 # Specify the path to the Excel file
@@ -66,6 +67,22 @@ target_population_df <- data.frame(
   Target_Population = names(target_population_frequency),
   Frequency = as.numeric(target_population_frequency)
 )
+########## Each kind of study population per country ????
+#Each study population per country
+study_population_data <- included_studies %>%
+  group_by(Country, `Study population`) %>%
+  summarise(StudySize = sum(`Study size`, na.rm = TRUE)) %>%
+  ungroup() %>%
+  pivot_wider(names_from = `Study population`, values_from = StudySize, values_fill = 0)
+
+#add the total
+study_population_data_tot <- study_population_data %>%
+  mutate(Total = rowSums(select(., -Country)))
+
+#Country, Study population, Count
+study_population_data_2 <- included_studies %>% 
+  group_by(Country, `Study population`, `Study size`) %>%
+  summarise(Count = n())
 
 # Filter studies published in or after 2020
 studies_after_2020 <- included_studies %>%
@@ -78,7 +95,7 @@ num_studies_after_2020 <- nrow(studies_after_2020)
 studies_with_methods <- included_studies %>%
   filter(!is.na(Methods))
 
-# Calculate the number of practices per country
+# Calculate the number of Methods per country
 practices_per_country <- studies_with_methods %>%
   group_by(Country) %>%
   summarise(NumberOfPractices = n_distinct(Methods))
@@ -111,7 +128,7 @@ known_disease_df <- data_df %>%
 # Calculate the frequency of each disease category
 disease_category_frequency <- table(known_disease_df$`Disease Category`)
 
-# Convert the result to a data frame       ###################
+# Convert the result to a data frame       ################### (Problem from data set not from code)
 disease_category_df <- data.frame(
   Disease_Category = names(disease_category_frequency),
   Frequency = as.numeric(disease_category_frequency)
@@ -230,25 +247,30 @@ similar_practices <- filtered_data %>%
   filter(Frequency > 1)
 
 # Step 3: Create a table to display the identified practices ####### IDENTICAL PRACTICES AMONG COUNTRY AND PLOT IT !!!
-table_of_practices <- similar_practices %>%
-  select(`Scientific name`, `Organ Category`, `Disease Category`, `Treatment Category`, `Ailments treated`, `Country`, `Frequency`) %>%
-  distinct() %>%
-  arrange(desc(Frequency))
+#table_of_practices <- similar_practices %>%
+#  select(`Scientific name`, `Organ Category`, `Disease Category`, `Treatment Category`, `Ailments treated`, `Country`, `Frequency`) %>%
+#  distinct() %>%
+#  arrange(desc(Frequency))
+
+#Step 3 (Fixed)
+practices_used_in_multiple_countries <- table_of_practices %>%
+  group_by(`Scientific name`, `Organ Category`, `Disease Category`, `Treatment Category`, `Ailments treated`) %>%
+  mutate(NumCountries = n_distinct(Country), Countries = toString(unique(Country))) %>%
+  filter(NumCountries > 1) %>%
+  distinct(`Scientific name`, `Organ Category`, `Disease Category`, `Treatment Category`, `Ailments treated`, Countries)
 
 # Step 4: Optionally, create a graph
-ggplot(table_of_practices, aes(x = reorder(Country, -Frequency), y = Frequency, fill = Country)) +
-  geom_bar(stat = "identity") +
-  labs(title = "Frequency of Similar/Identical Practices by Country/Region",
-       x = "Country/Region",
-       y = "Frequency") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-# Print the table of practices
-print(table_of_practices)
+#ggplot(table_of_practices, aes(x = reorder(Country, -Frequency), y = Frequency, fill = Country)) +
+#  geom_bar(stat = "identity") +
+#  labs(title = "Frequency of Similar/Identical Practices by Country/Region",
+#       x = "Country/Region",
+#       y = "Frequency") +
+#  theme_minimal() +
+#  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 
-##### PLOT ####
+
+##### PLOT #### tot study size per country
 grouped_data <- included_studies %>%
       group_by(Country, `Study population`) %>%
       summarise(Frequency = n(),
@@ -264,18 +286,83 @@ ggplot(data = map_data) +
      theme_minimal() +
      theme(legend.position = "bottom")
 
-#Each study population per country
-study_population_data <- included_studies %>%
-      group_by(Country, `Study population`) %>%
-      summarise(StudySize = sum(`Study size`, na.rm = TRUE)) %>%
-      ungroup() %>%
-      pivot_wider(names_from = `Study population`, values_from = StudySize, values_fill = 0)
 
-#add the total
-study_population_data_tot <- study_population_data %>%
-  mutate(Total = rowSums(select(., -Country)))
+### THEME B #####
 
-#Country, Study population, Count
-study_population_data_2 <- included_studies %>% 
-      group_by(Country, `Study population`, `Study size`) %>%
-      summarise(Count = n())
+# -	Most frequently cited phylogenetic category
+ordered_categories <- data_df %>%
+  group_by(`Phylogenetic category`) %>%
+  summarise(Frequency = n()) %>%
+  arrange(desc(Frequency))
+
+# Top 5 species within each phylogenetic category
+top_scientific_names <- data_df %>%
+  group_by(`Phylogenetic category`, `Scientific name`) %>%
+  summarise(Frequency = n()) %>%
+  
+  # Rank scientific names by frequency within each category
+  arrange(`Phylogenetic category`, desc(Frequency)) %>%
+  group_by(`Phylogenetic category`) %>%
+  mutate(Rank = row_number()) %>%
+  
+  # Filter for the top 5 scientific names in each category
+  filter(Rank <= 5)
+
+# -	Number of endangered species 
+endangered_count <- data_df %>%
+  filter(`IUCN` %in% c("VU", "CR", "EN", "DD")) %>%
+  distinct(`Scientific name`) %>%
+  nrow()
+
+# non-endangered 
+non_endangered_count <- data_df %>%
+  filter(`IUCN` %in% c("LC", "DOM")) %>%
+  distinct(`Scientific name`) %>%
+  nrow()
+
+
+# Perform a chi-squared test
+chi_squared_test <- chisq.test(c(endangered_count, non_endangered_count))
+cat("Chi-Squared Test p-value:", chi_squared_test$p.value, "\n")
+#The p-value from the chi-squared test will indicate whether the difference between 
+#the two groups is statistically significant. 
+#If the p-value is less than a chosen significance level (e.g., 0.05), 
+#it suggests a significant difference.
+
+
+# - Top 10 most frequent endangered species? 
+sorted_endangered_species <- data_df %>%
+  filter(`IUCN` %in% c("VU", "CR", "EN", "DD")) %>%
+  group_by(`Scientific name`) %>%
+  summarise(Frequency = n()) %>%
+  arrange(desc(Frequency))
+
+# Get the top 10 most frequent endangered species
+top_10_endangered_species <- head(sorted_endangered_species, 10)
+
+##### GLM Test ##### 
+
+# Create another data set with a binary variable indicating if the practice requires a live animal
+data_df <- data_df %>%
+  mutate(RequiresLiveAnimal = ifelse(`Organ Category` %in% c("dung", "faeces", "feathers", "secretions"), 1, 0))
+
+# Categorize species into endangered and non-endangered
+data_df$SpeciesCategory <- ifelse(data_df$`IUCN` %in% c("VU", "CR", "EN", "DD"), "Endangered",
+                                  ifelse(data_df$`IUCN` %in% c("LC", "DOM"), "Non-Endangered", "Other"))
+
+# Fit a logistic regression model
+glm_result <- glm(RequiresLiveAnimal ~ SpeciesCategory, data = data_df, family = binomial) #glm.fit: algorithm did not converge!!!!!!!!!!!!!
+
+# Create a summary table for the GLM result
+summary_table <- summary(glm_result)
+pander(summary_table)
+
+# Create a graph to visualize the relationship
+
+ggplot(data_df2, aes(x = SpeciesCategory, fill = factor(RequiresLiveAnimal))) +
+  geom_bar(position = "fill") +
+  labs(title = "Proportion of Practices Requiring Live Animals",
+       x = "Species Category",
+       y = "Proportion") +
+  scale_fill_manual(values = c("0" = "blue", "1" = "red"), name = "Requires Live Animal") +
+  theme_minimal()
