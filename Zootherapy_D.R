@@ -344,14 +344,14 @@ top_10_endangered_species <- head(sorted_endangered_species, 10)
 
 # Create another data set with a binary variable indicating if the practice requires a live animal
 data_df <- data_df %>%
-  mutate(RequiresLiveAnimal = ifelse(`Organ Category` %in% c("dung", "faeces", "feathers", "secretions"), 1, 0))
+  mutate(RequiresLiveAnimal = ifelse(`Organ Category` %in% c("Dung", "Faeces", "Feathers", "Secretions"), 1, 0))
 
 # Categorize species into endangered and non-endangered
 data_df$SpeciesCategory <- ifelse(data_df$`IUCN` %in% c("VU", "CR", "EN", "DD"), "Endangered",
                                   ifelse(data_df$`IUCN` %in% c("LC", "DOM"), "Non-Endangered", "Other"))
 
 # Fit a logistic regression model
-glm_result <- glm(RequiresLiveAnimal ~ SpeciesCategory, data = data_df, family = binomial) #glm.fit: algorithm did not converge!!!!!!!!!!!!!
+glm_result <- glm(RequiresLiveAnimal ~ SpeciesCategory, data = data_df, family = binomial)
 
 # Create a summary table for the GLM result
 summary_table <- summary(glm_result)
@@ -359,7 +359,7 @@ pander(summary_table)
 
 # Create a graph to visualize the relationship
 
-ggplot(data_df2, aes(x = SpeciesCategory, fill = factor(RequiresLiveAnimal))) +
+ggplot(data_df, aes(x = SpeciesCategory, fill = factor(RequiresLiveAnimal))) +
   geom_bar(position = "fill") +
   labs(title = "Proportion of Practices Requiring Live Animals",
        x = "Species Category",
