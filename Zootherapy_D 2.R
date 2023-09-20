@@ -36,7 +36,7 @@ num_countries <- length(unique_countries) # should be 23, one is 'sub-saharan Af
 # Number of studies per country
 studies_per_country <- table(included_studies$Country)
 
-# Convert the result to a data frame #Cameroon 3, Burkina Faso 4, South Africa 4, Ethiopia 6, Nigeria 10, other countries: 1 or 2
+# Convert the result to a data frame #Cameroon 3, Burkina Faso 3, South Africa 4, Ethiopia 6, Nigeria 10, other countries: 1 or 2
 studies_per_country_df <- data.frame(
   Country = names(studies_per_country),
   Number_of_Studies = as.numeric(studies_per_country)
@@ -44,7 +44,7 @@ studies_per_country_df <- data.frame(
 
 # Overall study size (total number of people interviewed)
 included_studies$`Study size` <- as.numeric(included_studies$`Study size`)
-overall_study_size <- sum(included_studies$`Study size`, na.rm = TRUE) #5175
+overall_study_size <- sum(included_studies$`Study size`, na.rm = TRUE) #5115
 
 # Study size per country
 study_size_per_country <- tapply(
@@ -163,7 +163,7 @@ print(top_10_common_ailments)
 #num_unknown_diseases <- sum(is.na(data_df$`Ailments Treated`)) but warning Unknown or uninitialised column: `Ailments Treated`. 
 
 # Calculate the number of unique species based on Scientific name
-num_species_used <- length(unique(data_df$`Scientific Name`)) #530
+num_species_used <- length(unique(data_df$`Scientific Name`)) #528
 
 # Print the result
 cat("Number of species used:", num_species_used, "\n")
@@ -301,6 +301,40 @@ similar_practices_used_in_multiple_countries <- table_of_practices %>%
 #       y = "Frequency") +
 #  theme_minimal() +
 #  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+### for animal order instead of scientific name
+
+filtered_data <- data_df %>%
+  select(`Animal Order`, `Tissue Category`, `Disease Category`, `Treatment Category`, `Ailment Treated`, `Country`)
+
+# Remove rows with missing values in key columns
+filtered_data <- na.omit(filtered_data)
+
+# Step 2: Identify similar or identical practices
+similar_practices <- filtered_data %>%
+  group_by(`Animal Order`, `Tissue Category`, `Disease Category`, `Treatment Category`) %>%
+  mutate(Frequency = n()) %>%
+  filter(Frequency > 1)
+
+# Step 3: Create a table to display the identified practices ####### IDENTICAL PRACTICES AMONG COUNTRY AND PLOT IT !!!
+table_of_practices <- similar_practices %>%
+  select(`Animal Order`, `Tissue Category`, `Disease Category`, `Treatment Category`, `Ailment Treated`, `Country`, `Frequency`) %>%
+  distinct() %>%
+  arrange(desc(Frequency))
+
+#Step 4 
+identical_practices_used_in_multiple_countries <- table_of_practices %>%
+  group_by(`Animal Order`, `Tissue Category`, `Disease Category`, `Treatment Category`, `Ailment Treated`) %>%
+  mutate(NumCountries = n_distinct(Country), Countries = toString(unique(Country))) %>%
+  filter(NumCountries > 1) %>%
+  distinct(`Animal Order`, `Tissue Category`, `Disease Category`, `Treatment Category`, `Ailment Treated`, Countries)
+
+#Step 4 
+similar_practices_used_in_multiple_countries <- table_of_practices %>%
+  group_by(`Animal Order`, `Tissue Category`, `Disease Category`, `Treatment Category`) %>%
+  mutate(NumCountries = n_distinct(Country), Countries = toString(unique(Country))) %>%
+  filter(NumCountries > 1) %>%
+  distinct(`Animal Order`, `Tissue Category`, `Disease Category`, `Treatment Category`, Countries)
 
 
 
