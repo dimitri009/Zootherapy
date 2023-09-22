@@ -3,13 +3,14 @@ library(dplyr)
 library(tidyr)
 library(ggplot2)
 library(gridExtra)
+library(sf)
 library(rnaturalearth)
 library(rnaturalearthdata)
 library(pander)
 
 
 # Specify the path to the Excel file
-excel_file <- "Zootherapy_v5.xlsx"
+excel_file <- "Zootherapy_final.xlsx"
 
 # List the sheets available in the Excel file
 sheet_names <- excel_sheets(excel_file)
@@ -65,7 +66,7 @@ target_population_frequency <- table(included_studies$`Study population`) #### E
 # Convert the result to a data frame
 target_population_df <- data.frame(
   Target_Population = names(target_population_frequency),
-  Frequency = as.numeric(target_population_frequency)
+  Count = as.numeric(target_population_frequency)
 )
 ########## Each kind of study population per country ????
 #Each study population per country
@@ -98,10 +99,10 @@ studies_with_methods <- included_studies %>%
 # Calculate the number of Methods per country
 practices_per_country <- studies_with_methods %>%
   group_by(Country) %>%
-  summarise(NumberOfPractices = n_distinct(Methods))
+  summarise(NumberOfMethods = n_distinct(Methods))
 
 # Split the "Ailments treated" column by comma and create a list
-ailments_list <- strsplit(data_df$`Ailments treated`, ",")
+ailments_list <- strsplit(data_df$`Ailment Treated`, ",")
 
 # Flatten the list and remove leading/trailing whitespace
 ailments <- trimws(unlist(ailments_list))
@@ -118,7 +119,7 @@ ailment_frequency <- table(ailments)
 # Convert the result to a data frame
 top_10_ailments_df <- data.frame(
   Ailment = names(sort(ailment_frequency, decreasing = TRUE)[1:10]),
-  Frequency = as.numeric(sort(ailment_frequency, decreasing = TRUE)[1:10])
+  Count = as.numeric(sort(ailment_frequency, decreasing = TRUE)[1:10])
 )
 
 # Filter out rows where Disease Category is not 'unknown'
@@ -131,11 +132,11 @@ disease_category_frequency <- table(known_disease_df$`Disease Category`)
 # Convert the result to a data frame       ################### (Problem from data set not from code)
 disease_category_df <- data.frame(
   Disease_Category = names(disease_category_frequency),
-  Frequency = as.numeric(disease_category_frequency)
+  Count = as.numeric(disease_category_frequency)
 )
 
 # Sort the data frame by frequency in descending order
-sorted_disease_category_df <- disease_category_df[order(-disease_category_df$Frequency), ]
+sorted_disease_category_df <- disease_category_df[order(-disease_category_df$Count), ]
 
 # Get the top 10 most common ailments treated
 top_10_common_ailments <- head(sorted_disease_category_df, 10)
@@ -146,29 +147,29 @@ print(top_10_common_ailments)
 
 
 # Count the number of occurrences of "unknown" in the "Ailments treated" column
-num_unknown_ailments <- sum(data_df$`Ailments treated` == "Unknown")
+num_unknown_ailments <- sum(data_df$`Ailment Treated` == "Unknown", na.rm = TRUE)
 
 # Print the result
 cat("Number of unknown ailments:", num_unknown_ailments, "\n")
 
 
 # Calculate the number of unique species based on Scientific name
-num_species_used <- length(unique(data_df$`Scientific name`))
+num_species_used <- length(unique(data_df$`Scientific Name`))
 
 # Print the result
 cat("Number of species used:", num_species_used, "\n")
 
 # Calculate the frequency of each species
-species_frequency <- table(data_df$`Scientific name`)
+species_frequency <- table(data_df$`Scientific Name`)
 
 # Convert the result to a data frame
 species_df <- data.frame(
   Scientific_Name = names(species_frequency),
-  Frequency = as.numeric(species_frequency)
+  Count = as.numeric(species_frequency)
 )
 
 # Sort the data frame by frequency in descending order
-sorted_species_df <- species_df[order(-species_df$Frequency), ]
+sorted_species_df <- species_df[order(-species_df$Count), ]
 
 # Top 10 most commonly used species
 top_10_most_common_species <- head(sorted_species_df, 10)
@@ -186,16 +187,16 @@ print(top_10_least_common_species)
 ## -	Number of body parts used & rank most to least commonly used   - ##
 
 # Calculate the frequency of each organ category
-organ_category_frequency <- table(data_df$`Organ Category`)
+organ_category_frequency <- table(data_df$`Tissue Category`)
 
 # Convert the result to a data frame
 organ_category_df <- data.frame(
   Organ_Category = names(organ_category_frequency),
-  Frequency = as.numeric(organ_category_frequency)
+  Count = as.numeric(organ_category_frequency)
 )
 
 # Sort the data frame by frequency in descending order
-sorted_organ_category_df <- organ_category_df[order(-organ_category_df$Frequency), ]
+sorted_organ_category_df <- organ_category_df[order(-organ_category_df$Count), ]
 
 # Print the number of body parts used
 cat("Number of body parts used:", nrow(sorted_organ_category_df), "\n")
@@ -217,7 +218,7 @@ cat("Number of 'unknown' diseases treated:", num_unknown_diseases, "\n")
 ## -	Number of distinct practices  - ##
 
 # Select relevant columns
-selected_columns <- c("Scientific name", "Organ Category", "Disease Category", "Treatment Category")
+selected_columns <- c("Scientific Name", "Tissue Category", "Disease Category", "Treatment Category")
 
 # Filter and preprocess the data to include only relevant columns and remove rows with missing values
 filtered_data <- data_df %>%
@@ -235,29 +236,29 @@ cat("Number of distinct practices:", num_distinct_practices, "\n")
 
 # Step 1: Filter and preprocess the data
 filtered_data <- data_df %>%
-  select(`Scientific name`, `Organ Category`, `Disease Category`, `Treatment Category`, `Ailments treated`, `Country`)
+  select(`Scientific Name`, `Tissue Category`, `Disease Category`, `Treatment Category`, `Ailment Treated`, `Country`)
 
 # Remove rows with missing values in key columns
 filtered_data <- na.omit(filtered_data)
 
 # Step 2: Identify similar or identical practices
 similar_practices <- filtered_data %>%
-  group_by(`Scientific name`, `Organ Category`, `Disease Category`, `Treatment Category`) %>%
+  group_by(`Scientific Name`, `Tissue Category`, `Disease Category`, `Treatment Category`) %>%
   mutate(Frequency = n()) %>%
   filter(Frequency > 1)
 
 # Step 3: Create a table to display the identified practices ####### IDENTICAL PRACTICES AMONG COUNTRY AND PLOT IT !!!
-#table_of_practices <- similar_practices %>%
-#  select(`Scientific name`, `Organ Category`, `Disease Category`, `Treatment Category`, `Ailments treated`, `Country`, `Frequency`) %>%
-#  distinct() %>%
-#  arrange(desc(Frequency))
+table_of_practices <- similar_practices %>%
+  select(`Scientific Name`, `Tissue Category`, `Disease Category`, `Treatment Category`, `Ailment Treated`, `Country`, `Frequency`) %>%
+  distinct() %>%
+  arrange(desc(Frequency))
 
 #Step 3 (Fixed)
 practices_used_in_multiple_countries <- table_of_practices %>%
-  group_by(`Scientific name`, `Organ Category`, `Disease Category`, `Treatment Category`, `Ailments treated`) %>%
+  group_by(`Scientific Name`, `Tissue Category`, `Disease Category`, `Treatment Category`, `Ailment Treated`) %>%
   mutate(NumCountries = n_distinct(Country), Countries = toString(unique(Country))) %>%
   filter(NumCountries > 1) %>%
-  distinct(`Scientific name`, `Organ Category`, `Disease Category`, `Treatment Category`, `Ailments treated`, Countries)
+  distinct(`Scientific Name`, `Tissue Category`, `Disease Category`, `Treatment Category`, `Ailment Treated`, Countries)
 
 # Step 4: Optionally, create a graph
 #ggplot(table_of_practices, aes(x = reorder(Country, -Frequency), y = Frequency, fill = Country)) +
@@ -268,6 +269,10 @@ practices_used_in_multiple_countries <- table_of_practices %>%
 #  theme_minimal() +
 #  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
+#Number of pratices per country
+practice_counts_per_country <- filtered_data %>%
+  group_by(Country) %>%
+  summarise(Number_of_Practices = n_distinct(paste(`Tissue Category`, `Disease Category`, `Treatment Category`, `Ailment Treated`)))
 
 
 ##### PLOT #### tot study size per country
@@ -275,34 +280,77 @@ grouped_data <- included_studies %>%
       group_by(Country, `Study population`) %>%
       summarise(Frequency = n(),
                                 TotalStudySize = sum(`Study size`, na.rm = TRUE))
-world <- ne_countries(scale = "medium", returnclass = "sf")
-map_data <- left_join(world, grouped_data, by = c("name" = "Country"))
+
+# Get African countries data
+african_countries <- ne_countries(scale = "medium", returnclass = "sf") %>%
+  filter(region_un == "Africa")
+
+# Join your grouped_data with African countries data
+map_data <- left_join(african_countries, grouped_data, by = c("name_long" = "Country"))
+
+# Plot the map
 ggplot(data = map_data) +
-     geom_sf(aes(fill = TotalStudySize)) +
-     scale_fill_gradient(low = "lightblue", high = "darkblue", name = "Total Study Size") +
-     labs(title = "Total Study Size by Country",
-                     subtitle = "Focus on Africa",
-                     caption = "Source: Your Data Source") +
-     theme_minimal() +
-     theme(legend.position = "bottom")
+  geom_sf(aes(fill = TotalStudySize)) +
+  scale_fill_gradient(low = "lightblue", high = "darkblue", name = "Total Study Size") +
+  labs(title = "Total Study Size by African Country",
+       caption = "Source: Your Data Source") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+#world <- ne_countries(scale = "medium", returnclass = "sf")
+#map_data <- left_join(world, grouped_data, by = c("name" = "Country"))
+#ggplot(data = map_data) +
+#     geom_sf(aes(fill = TotalStudySize)) +
+#     scale_fill_gradient(low = "lightblue", high = "darkblue", name = "Total Study Size") +
+#     labs(title = "Total Study Size by Country",
+#                     subtitle = "Focus on Africa",
+#                     caption = "Source: Your Data Source") +
+#     theme_minimal() +
+#     theme(legend.position = "bottom")
+
+#PLOT AFRICAN MAP WITH NUMBER OF STUDIES
+
+map_data2 <- left_join(african_countries, studies_per_country_df, by = c("name_long" = "Country"))
+
+# Plot the map 
+ggplot(data = map_data2) +
+  geom_sf(aes(fill = Number_of_Studies)) +
+  scale_fill_gradient(low = "lightblue", high = "darkblue", name = "Number of Studies", labels = scales::comma, breaks = scales::pretty_breaks(n = 5)) +
+  labs(title = "Number of Studies per African Country",
+       caption = "Source: Your Data Source") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+#PLOT NUMBER OF PRACTICES PER COUNTRY
+
+map_data3 <- left_join(african_countries, practice_counts_per_country, by = c("name_long" = "Country"))
+
+# Plot the map for the number of practices per country
+ggplot(data = map_data3) +
+  geom_sf(aes(fill = Number_of_Practices)) +
+  scale_fill_gradient(low = "lightblue", high = "darkblue", name = "Number of Practices") +
+  labs(title = "Number of Practices per African Country",
+       caption = "Source: Your Data Source") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
 
 
 ### THEME B #####
 
 # -	Most frequently cited phylogenetic category
 ordered_categories <- data_df %>%
-  group_by(`Phylogenetic category`) %>%
+  group_by(`Phylogenetic Category`) %>%
   summarise(Frequency = n()) %>%
   arrange(desc(Frequency))
 
 # Top 5 species within each phylogenetic category
 top_scientific_names <- data_df %>%
-  group_by(`Phylogenetic category`, `Scientific name`) %>%
+  group_by(`Phylogenetic Category`, `Scientific Name`) %>%
   summarise(Frequency = n()) %>%
   
   # Rank scientific names by frequency within each category
-  arrange(`Phylogenetic category`, desc(Frequency)) %>%
-  group_by(`Phylogenetic category`) %>%
+  arrange(`Phylogenetic Category`, desc(Frequency)) %>%
+  group_by(`Phylogenetic Category`) %>%
   mutate(Rank = row_number()) %>%
   
   # Filter for the top 5 scientific names in each category
@@ -340,9 +388,44 @@ sorted_endangered_species <- data_df %>%
 # Get the top 10 most frequent endangered species
 top_10_endangered_species <- head(sorted_endangered_species, 10)
 
+
+## PLOT the 20 most cited and their frequency and level of endangerment (DOM<LC<NT<VU<EN<CR) in color scale
+
+# Extract the top 20 most cited species
+top_20_species3 <- data_df %>%
+    group_by(`Scientific Name`, IUCN) %>%
+    summarise(Frequency = n()) %>%
+    arrange(desc(Frequency)) %>%
+    head(20)
+
+# Filter out rows with missing Scientific Name values
+top_20_species3 <- top_20_species3 %>% filter(!is.na(`Scientific Name`))
+
+# Define the color palette from green to red
+colors <- c("DOM" = "green", "LC" = "greenyellow", "NT" = "yellow", "VU" = "orange", "EN" = "red", "CR" = "darkred")
+
+# Define the order of IUCN levels
+iucn_levels <- c("DOM", "LC", "NT", "VU", "EN", "CR")
+
+# Convert IUCN to a factor with specified levels
+top_20_species3$IUCN <- factor(top_20_species3$IUCN, levels = iucn_levels)
+
+# Create the bar plot 
+ggplot(top_20_species3, aes(x = reorder(`Scientific Name`, -Frequency), y = Frequency, fill = IUCN)) +
+     geom_bar(stat = "identity") +
+     scale_fill_manual(values = colors) +
+     labs(
+           title = "Frequency of Top 20 Species by IUCN Status",
+           x = "Scientific Name",
+           y = "Frequency"
+       ) +
+     theme_minimal() +
+     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+     guides(fill = guide_legend(title = "IUCN Status"))  # Add legend
+
 ##### GLM Test ##### 
 
-# Create another data set with a binary variable indicating if the practice requires a live animal
+# Create a binary variable indicating if the practice requires a live animal
 data_df <- data_df %>%
   mutate(RequiresLiveAnimal = ifelse(`Organ Category` %in% c("Dung", "Faeces", "Feathers", "Secretions"), 1, 0))
 
