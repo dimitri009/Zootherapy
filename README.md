@@ -1,6 +1,4 @@
-# Zootherapy
-
-A systematic review and analysis of health risks associated with zootherapeutic practices in Africa
+# A systematic review and analysis of health risks associated with zootherapeutic practices in Africa
 
 The systematic review was conducted in the following steps:
 
