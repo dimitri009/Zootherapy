@@ -8,4 +8,4 @@ The [systematic review](https://www.medrxiv.org/content/10.1101/2024.02.14.24302
 
 3. We attributed a risk score to each practice recorded on the excel sheet using '*f_Data_transformation.py*' and categories described in the Methods.
 
-4. We conducted the analysis on the resulting dataset using ‘*Metadata_health_simplified.R*’ and ‘*Main_health_simplified.R*’ contains code for supporting elements.
+4. We conducted the analysis on the resulting dataset using ‘*Metadata_health_simplified.R*’ and ‘*Main_health_simplified.R*’.
